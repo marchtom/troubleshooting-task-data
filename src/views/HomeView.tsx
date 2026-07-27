@@ -1,34 +1,40 @@
-import { VIEWS } from '../config/views'
-import type { ViewId } from '../data/types'
+import { SCENARIO_NOW } from '../data/generateScenario'
 
 interface HomeViewProps {
   serviceName: string
-  onNavigate: (view: ViewId) => void
 }
 
-export function HomeView({ serviceName, onNavigate }: HomeViewProps) {
+const NOW_LABEL = new Date(SCENARIO_NOW).toLocaleString('en-US', {
+  timeZone: 'UTC',
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+})
+
+export function HomeView({ serviceName }: HomeViewProps) {
   return (
     <section className="home">
-      <div>
+      <div className="home-brief">
+        <span className="badge bad">Incident</span>
         <h1>{serviceName}</h1>
         <p className="home-lead">
-          Interview console for production investigation. Open a metric view when
-          the candidate asks for that signal. Views are intentionally separate so
-          signals are revealed progressively.
+          You got a message on Slack: <strong>{serviceName}</strong> is returning a high rate of
+          errors. Please look into this.
         </p>
-      </div>
-      <div className="view-grid">
-        {VIEWS.map((v) => (
-          <button
-            key={v.id}
-            type="button"
-            className="view-card"
-            onClick={() => onNavigate(v.id)}
-          >
-            <h2>{v.label}</h2>
-            <p>{v.description}</p>
-          </button>
-        ))}
+        <ul className="home-context">
+          <li>
+            You are currently the on-call engineer for your domain. <strong>{serviceName}</strong>{' '}
+            is one of the services in that domain.
+          </li>
+          <li>It is currently {NOW_LABEL} UTC.</li>
+          <li>You are not deeply familiar with this service's code.</li>
+          <li>Reliability gaps have been raised about this service in the past.</li>
+        </ul>
+        <p className="home-lead">Investigate and find the root cause.</p>
       </div>
     </section>
   )

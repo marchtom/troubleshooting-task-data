@@ -1,31 +1,78 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import App from './App'
 
-describe('App navigation and progressive disclosure', () => {
-  it('starts on home with explicit view buttons', () => {
+function goto(hash: string) {
+  act(() => {
+    window.location.hash = hash
+    window.dispatchEvent(new Event('hashchange'))
+  })
+}
+
+describe('App navigation, gating and progressive disclosure', () => {
+  beforeEach(() => {
+    window.localStorage.clear()
+    window.location.hash = ''
+  })
+
+  it('starts on home with no metric tabs revealed', () => {
     render(<App />)
-    expect(screen.getByRole('heading', { name: /checkout-api/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Requests' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Instances' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /sharing-service/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Home' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Service Health' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Logs' })).toBeNull()
+  })
+
+  it('reveals a view in the top nav once it is visited via its link', () => {
+    render(<App />)
+    expect(screen.queryByRole('button', { name: 'Service Health' })).toBeNull()
+    goto('#/health')
+    expect(screen.getByRole('heading', { name: 'Service Health' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Service Health' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '1h' })).toHaveClass('active')
+  })
+
+  it('keeps previously visited views available after returning home', () => {
+    render(<App />)
+    goto('#/health')
+    goto('#/logs')
+    goto('')
+    expect(screen.getByRole('button', { name: 'Service Health' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Logs' })).toBeInTheDocument()
   })
 
-  it('navigates to requests and exposes time ranges', async () => {
+  it('filters the log stream to a chosen error bucket', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getAllByRole('button', { name: 'Requests' })[0])
-    expect(screen.getByRole('heading', { name: 'Requests' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '1h' })).toHaveClass('active')
-    expect(screen.getByRole('button', { name: '7d' })).toBeInTheDocument()
+    goto('#/logs')
+    const poolBucket = screen.getByRole('button', { name: /500 Internal Server Error/i })
+    await user.click(poolBucket)
+    expect(screen.getByText(/Clear filter/i)).toBeInTheDocument()
+    // Left panel shows the generic status, but the filtered stream rows keep the raw DB message.
+    expect(screen.getAllByText(/connection checkout timed out/i).length).toBeGreaterThan(0)
   })
 
-  it('filters logs to surface pool exhaustion aggregates', async () => {
+  it('shows a no-traces message instead of trace waterfalls', () => {
+    render(<App />)
+    goto('#/traces')
+    expect(screen.getByText(/No traces available/i)).toBeInTheDocument()
+  })
+
+  it('exposes the config change diff in the changelog', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getAllByRole('button', { name: 'Logs' })[0])
-    await user.click(screen.getByRole('button', { name: 'error' }))
-    expect(screen.getAllByText(/connection pool exhausted/i).length).toBeGreaterThan(0)
+    goto('#/changelog')
+    expect(screen.getByText(/Update README.md/i)).toBeInTheDocument()
+    await user.click(screen.getAllByRole('button', { name: 'View diff' })[0])
+    expect(screen.getByText(/pool_size: 5/i)).toBeInTheDocument()
+  })
+
+  it('lists every path on the interviewer directory page', () => {
+    render(<App />)
+    goto('#/all')
+    expect(screen.getByRole('heading', { name: /All paths/i })).toBeInTheDocument()
+    expect(screen.getByText('#/health')).toBeInTheDocument()
+    expect(screen.getByText('#/endpoints')).toBeInTheDocument()
   })
 })

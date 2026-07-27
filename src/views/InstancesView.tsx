@@ -25,8 +25,8 @@ export function InstancesView({ scenario }: InstancesViewProps) {
         <div>
           <h1>Instances</h1>
           <p>
-            Fleet resource health looks normal. Per-instance error split is available in the
-            heatmap below.
+            Fleet resource usage looks normal. Per-instance error split is available in the heatmap
+            below.
           </p>
         </div>
         <div className="range-group" role="group" aria-label="Time range">
@@ -46,8 +46,6 @@ export function InstancesView({ scenario }: InstancesViewProps) {
       <div className="stat-row">
         <Stat label="Desired pods" value={String(scenario.instanceCount)} />
         <Stat label="Ready pods" value={String(latest?.readyPods ?? scenario.instanceCount)} tone="ok" />
-        <Stat label="LB unhealthy" value="0" tone="ok" />
-        <Stat label="Restarts (window)" value="0" tone="ok" />
         <Stat
           label="Pods with elevated errors"
           value={`${affected} / ${scenario.instanceCount}`}
@@ -56,24 +54,18 @@ export function InstancesView({ scenario }: InstancesViewProps) {
       </div>
 
       <div className="chart-grid two">
-        <ChartPanel title="CPU % of request" hint="Healthy — no saturation or throttling incident.">
+        <ChartPanel title="CPU usage %" hint="Healthy — no saturation.">
           <TimeSeriesChart
             data={data}
-            series={[
-              { dataKey: 'cpuPct', name: 'app CPU %', color: '#7aa2f7' },
-              { dataKey: 'istioCpuPct', name: 'sidecar CPU %', color: '#5cc8ff' },
-            ]}
+            series={[{ dataKey: 'cpuPct', name: 'CPU %', color: '#7aa2f7' }]}
             yUnit="%"
             yDomain={[0, 100]}
           />
         </ChartPanel>
-        <ChartPanel title="Memory % of request">
+        <ChartPanel title="Memory usage %">
           <TimeSeriesChart
             data={data}
-            series={[
-              { dataKey: 'memoryPct', name: 'app memory %', color: '#3ecf8e' },
-              { dataKey: 'istioMemoryPct', name: 'sidecar memory %', color: '#8bd5a0' },
-            ]}
+            series={[{ dataKey: 'memoryPct', name: 'memory %', color: '#3ecf8e' }]}
             yUnit="%"
             yDomain={[0, 100]}
           />
@@ -96,7 +88,7 @@ export function InstancesView({ scenario }: InstancesViewProps) {
             yDomain={[0, scenario.instanceCount + 5]}
           />
         </ChartPanel>
-        <ChartPanel title="Network / disk IO (red herring)">
+        <ChartPanel title="Network / disk IO">
           <TimeSeriesChart
             data={data}
             series={[
@@ -105,26 +97,21 @@ export function InstancesView({ scenario }: InstancesViewProps) {
             ]}
           />
         </ChartPanel>
-        <ChartPanel title="Pod restarts">
-          <TimeSeriesChart
-            data={data}
-            series={[{ dataKey: 'restarts', name: 'restarts', color: '#f07178' }]}
-            yDomain={[0, 2]}
-          />
-        </ChartPanel>
       </div>
 
       <div style={{ marginTop: '1rem' }}>
         <ChartPanel
           title="Per-instance error rate heatmap"
-          hint="All instances report healthy to the load balancer. Error rates differ by pod."
+          hint="Per-pod error rate and the container image SHA each pod is running."
         >
           <div className="instance-heatmap">
-            {scenario.instances.map((inst) => (
+            {[...scenario.instances]
+              .sort((a, b) => a.id.localeCompare(b.id))
+              .map((inst) => (
               <div
                 key={inst.id}
                 className={`instance-cell ${inst.healthy ? 'good' : 'bad'}`}
-                title={`${inst.name}: ${(inst.errorRate * 100).toFixed(1)}% errors`}
+                title={`${inst.name}: ${(inst.errorRate * 100).toFixed(1)}% errors · image ${inst.imageSha}`}
               >
                 <strong>{inst.id}</strong>
                 <div>
@@ -133,9 +120,11 @@ export function InstancesView({ scenario }: InstancesViewProps) {
                     {(inst.errorRate * 100).toFixed(1)}%
                   </span>
                 </div>
-                <div className="muted">LB {inst.lbStatus}</div>
                 <div className="muted">
                   CPU {inst.cpuPct.toFixed(0)}% · mem {inst.memoryPct.toFixed(0)}%
+                </div>
+                <div className="muted">
+                  image <code>{inst.imageSha}</code>
                 </div>
               </div>
             ))}

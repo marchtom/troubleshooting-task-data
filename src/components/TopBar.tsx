@@ -4,10 +4,13 @@ import type { ViewId } from '../data/types'
 interface TopBarProps {
   view: ViewId
   serviceName: string
+  unlocked: ViewId[]
   onNavigate: (view: ViewId) => void
 }
 
-export function TopBar({ view, serviceName, onNavigate }: TopBarProps) {
+export function TopBar({ view, serviceName, unlocked, onNavigate }: TopBarProps) {
+  const visibleViews = VIEWS.filter((v) => unlocked.includes(v.id))
+
   return (
     <header className="topbar">
       <div className="brand">
@@ -24,7 +27,7 @@ export function TopBar({ view, serviceName, onNavigate }: TopBarProps) {
         >
           Home
         </button>
-        {VIEWS.map((v) => (
+        {visibleViews.map((v) => (
           <button
             key={v.id}
             type="button"

@@ -1,7 +1,19 @@
 import { useEffect, useState } from 'react'
 import type { ViewId } from '../data/types'
 
-const VALID: ViewId[] = ['home', 'requests', 'instances', 'logs', 'traces', 'dependencies']
+const VALID: ViewId[] = [
+  'home',
+  'health',
+  'endpoints',
+  'instances',
+  'logs',
+  'traces',
+  'dependencies',
+  'changelog',
+  'dockerfile',
+  'manifest',
+  'all',
+]
 
 function parseHash(): ViewId {
   const raw = window.location.hash.replace(/^#\/?/, '') || 'home'

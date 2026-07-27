@@ -7,11 +7,11 @@ import type { Scenario, TimeRange } from '../data/types'
 
 const RANGES: TimeRange[] = ['1h', '6h', '24h', '7d']
 
-interface RequestsViewProps {
+interface ServiceHealthViewProps {
   scenario: Scenario
 }
 
-export function RequestsView({ scenario }: RequestsViewProps) {
+export function ServiceHealthView({ scenario }: ServiceHealthViewProps) {
   const [range, setRange] = useState<TimeRange>('1h')
 
   const data = useMemo(
@@ -20,6 +20,7 @@ export function RequestsView({ scenario }: RequestsViewProps) {
   )
 
   const latest = data[data.length - 1]
+  const fleetSize = scenario.instances.length
   const chartData = data.map((p) => ({
     ...p,
     errorRatePct: Number((p.errorRate * 100).toFixed(2)),
@@ -29,8 +30,11 @@ export function RequestsView({ scenario }: RequestsViewProps) {
     <section>
       <div className="panel-header">
         <div>
-          <h1>Requests</h1>
-          <p>Traffic volume, HTTP status mix, and latency — includes daily/weekly seasonality.</p>
+          <h1>Service Health</h1>
+          <p>
+            Traffic, errors, latency, fleet and coarse DB signals for {scenario.serviceName} —
+            includes daily/weekly seasonality.
+          </p>
         </div>
         <div className="range-group" role="group" aria-label="Time range">
           {RANGES.map((r) => (
@@ -53,10 +57,14 @@ export function RequestsView({ scenario }: RequestsViewProps) {
           value={latest ? `${(latest.errorRate * 100).toFixed(1)}%` : '—'}
           tone="critical"
         />
-        <Stat label="2xx RPS" value={latest ? latest.ok2xx.toLocaleString() : '—'} tone="ok" />
+        <Stat
+          label="Healthy instances"
+          value={latest ? `${latest.healthyInstances}/${fleetSize}` : '—'}
+        />
         <Stat label="p90 latency" value={latest ? `${latest.latencyP90} ms` : '—'} />
       </div>
 
+      <h2 className="section-title">Traffic &amp; errors</h2>
       <div className="chart-grid">
         <ChartPanel
           title="Request volume"
@@ -99,7 +107,7 @@ export function RequestsView({ scenario }: RequestsViewProps) {
             />
           </ChartPanel>
 
-          <ChartPanel title="5xx error rate %" hint="Baseline &lt; 0.1%; elevated period stays roughly flat.">
+          <ChartPanel title="5xx error rate %" hint="Baseline &lt; 0.1%; ramps up as traffic climbs.">
             <TimeSeriesChart
               data={chartData}
               series={[{ dataKey: 'errorRatePct', name: '5xx %', color: '#f07178' }]}
@@ -108,7 +116,10 @@ export function RequestsView({ scenario }: RequestsViewProps) {
             />
           </ChartPanel>
         </div>
+      </div>
 
+      <h2 className="section-title">Latency</h2>
+      <div className="chart-grid">
         <ChartPanel title="Latency percentiles">
           <TimeSeriesChart
             data={chartData}
@@ -118,6 +129,44 @@ export function RequestsView({ scenario }: RequestsViewProps) {
               { dataKey: 'latencyP99', name: 'p99', color: '#f07178' },
             ]}
             yUnit="ms"
+          />
+        </ChartPanel>
+      </div>
+
+      <h2 className="section-title">Fleet</h2>
+      <div className="chart-grid">
+        <ChartPanel
+          title="Healthy instances"
+          hint="Instances reporting a normal error level. Flat pre-incident; dips once part of the fleet degrades."
+        >
+          <TimeSeriesChart
+            data={chartData}
+            series={[
+              { dataKey: 'healthyInstances', name: 'healthy instances', color: '#3ecf8e' },
+            ]}
+            yDomain={[0, fleetSize]}
+          />
+        </ChartPanel>
+      </div>
+
+      <h2 className="section-title">Database</h2>
+      <div className="chart-grid two">
+        <ChartPanel
+          title="DB query latency (limited insight)"
+          hint="Owned by another team — only coarse latency signals available."
+        >
+          <TimeSeriesChart
+            data={chartData}
+            series={[{ dataKey: 'dbLatencyMs', name: 'query latency ms', color: '#3ecf8e' }]}
+            yUnit="ms"
+          />
+        </ChartPanel>
+        <ChartPanel title="Active DB connections (from sharing-service)">
+          <TimeSeriesChart
+            data={chartData}
+            series={[
+              { dataKey: 'dbActiveConnections', name: 'active connections', color: '#7aa2f7' },
+            ]}
           />
         </ChartPanel>
       </div>

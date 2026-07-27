@@ -9,9 +9,14 @@ export interface ViewConfig {
 /** Explicit labels for v1 — swap here later for anonymization. */
 export const VIEWS: ViewConfig[] = [
   {
-    id: 'requests',
-    label: 'Requests',
-    description: 'Traffic volume, status codes, and latency',
+    id: 'health',
+    label: 'Service Health',
+    description: 'Traffic, errors, latency, fleet & DB health',
+  },
+  {
+    id: 'endpoints',
+    label: 'Endpoints',
+    description: 'Per-endpoint request rate and error rate',
   },
   {
     id: 'instances',
@@ -32,5 +37,20 @@ export const VIEWS: ViewConfig[] = [
     id: 'dependencies',
     label: 'Dependencies',
     description: 'Upstream callers and downstream services',
+  },
+  {
+    id: 'changelog',
+    label: 'Changelog',
+    description: 'Recent deployments and configuration changes',
+  },
+  {
+    id: 'dockerfile',
+    label: 'Dockerfile',
+    description: 'Container image build definition',
+  },
+  {
+    id: 'manifest',
+    label: 'Manifest',
+    description: 'Kubernetes Deployment manifest',
   },
 ]

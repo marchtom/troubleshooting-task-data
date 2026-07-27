@@ -1,4 +1,15 @@
-export type ViewId = 'home' | 'requests' | 'instances' | 'logs' | 'traces' | 'dependencies'
+export type ViewId =
+  | 'home'
+  | 'health'
+  | 'endpoints'
+  | 'instances'
+  | 'logs'
+  | 'traces'
+  | 'dependencies'
+  | 'changelog'
+  | 'dockerfile'
+  | 'manifest'
+  | 'all'
 
 export type TimeRange = '1h' | '6h' | '24h' | '7d'
 
@@ -19,28 +30,24 @@ export interface TimePoint {
   cpuPct: number
   memoryPct: number
   throttlePct: number
-  restarts: number
   readyPods: number
   desiredPods: number
+  healthyInstances: number
   dbLatencyMs: number
-  dbReplicationLagMs: number
+  dbActiveConnections: number
   networkIoMBps: number
   diskIoMBps: number
-  istioCpuPct: number
-  istioMemoryPct: number
 }
 
 export interface Instance {
   id: string
   name: string
   healthy: boolean
-  lbStatus: 'healthy' | 'unhealthy'
   configVersion: 'vPrev' | 'vNew'
+  imageSha: string
   errorRate: number
   cpuPct: number
   memoryPct: number
-  restarts: number
-  ready: boolean
 }
 
 export interface LogEntry {
@@ -60,27 +67,6 @@ export interface LogAggregate {
   count: number
   pct: number
   kind: '4xx' | '5xx' | 'pool' | 'other'
-}
-
-export interface TraceSpan {
-  id: string
-  service: string
-  operation: string
-  startMs: number
-  durationMs: number
-  status: 'ok' | 'error'
-  detail?: string
-}
-
-export interface TraceSummary {
-  id: string
-  t: number
-  endpoint: string
-  status: 'ok' | 'error'
-  durationMs: number
-  statusCode: number
-  rootCause: string
-  spans: TraceSpan[]
 }
 
 export interface DependencyNode {
@@ -114,7 +100,6 @@ export interface Scenario {
   series: TimePoint[]
   logs: LogEntry[]
   logAggregates: LogAggregate[]
-  traces: TraceSummary[]
   nodes: DependencyNode[]
   edges: DependencyEdge[]
 }

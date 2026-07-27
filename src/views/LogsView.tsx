@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ChartPanel } from '../components/ChartPanel'
+import { errorBucket } from '../data/generateScenario'
 import type { LogEntry, LogLevel, Scenario } from '../data/types'
 
 const LEVELS: Array<LogLevel | 'all'> = ['all', 'error', 'warn', 'info', 'debug']
@@ -20,12 +21,39 @@ function formatTime(t: number): string {
 
 export function LogsView({ scenario }: LogsViewProps) {
   const [level, setLevel] = useState<LogLevel | 'all'>('all')
+  const [bucket, setBucket] = useState<string | null>(null)
   const [selected, setSelected] = useState<LogEntry | null>(null)
 
   const filtered = useMemo(() => {
-    const list = level === 'all' ? scenario.logs : scenario.logs.filter((l) => l.level === level)
+    let list: LogEntry[]
+    if (bucket) {
+      list = scenario.logs.filter((l) => l.level === 'error' && errorBucket(l).key === bucket)
+    } else if (level === 'all') {
+      list = scenario.logs
+    } else {
+      list = scenario.logs.filter((l) => l.level === level)
+    }
     return list.slice(0, 400)
-  }, [scenario.logs, level])
+  }, [scenario.logs, level, bucket])
+
+  const activeAgg = bucket ? scenario.logAggregates.find((a) => a.key === bucket) : null
+
+  const sortedAggregates = useMemo(() => {
+    const statusOf = (label: string) => {
+      const n = parseInt(label, 10)
+      return Number.isNaN(n) ? Number.MAX_SAFE_INTEGER : n
+    }
+    return [...scenario.logAggregates].sort((a, b) => statusOf(a.label) - statusOf(b.label))
+  }, [scenario.logAggregates])
+
+  const selectLevel = (l: LogLevel | 'all') => {
+    setBucket(null)
+    setLevel(l)
+  }
+
+  const selectBucket = (key: string) => {
+    setBucket((prev) => (prev === key ? null : key))
+  }
 
   return (
     <section>
@@ -33,8 +61,8 @@ export function LogsView({ scenario }: LogsViewProps) {
         <div>
           <h1>Logs</h1>
           <p>
-            Dense unstructured stream (~thousands/min). Filter by level — aggregates appear for
-            errors.
+            Dense unstructured stream (~thousands/min). Filter by level, or click an error bucket on
+            the left to show only that error type.
           </p>
         </div>
         <div className="chip-group" role="group" aria-label="Log level filter">
@@ -42,8 +70,8 @@ export function LogsView({ scenario }: LogsViewProps) {
             <button
               key={l}
               type="button"
-              className={`chip ${level === l ? 'active' : ''}`}
-              onClick={() => setLevel(l)}
+              className={`chip ${!bucket && level === l ? 'active' : ''}`}
+              onClick={() => selectLevel(l)}
             >
               {l}
             </button>
@@ -52,24 +80,39 @@ export function LogsView({ scenario }: LogsViewProps) {
       </div>
 
       <div className="logs-layout">
-        <ChartPanel title="Error aggregates" hint="Shown after filtering the stream to error.">
-          {level === 'error' ? (
-            <ul className="agg-list">
-              {scenario.logAggregates.map((a) => (
-                <li key={a.key} className={`agg-item ${a.kind === 'pool' ? 'pool' : ''}`}>
+        <ChartPanel title="Error aggregates">
+          <p className="muted agg-hint">
+            Grouped across all errors in the window. Click a bucket to filter the stream to that
+            error type; click again to clear.
+          </p>
+          <ul className="agg-list">
+            {sortedAggregates.map((a) => (
+              <li key={a.key}>
+                <button
+                  type="button"
+                  className={`agg-item ${bucket === a.key ? 'active' : ''}`}
+                  aria-pressed={bucket === a.key}
+                  onClick={() => selectBucket(a.key)}
+                >
                   <span>{a.label}</span>
-                  <span>
-                    {a.count.toLocaleString()} · {a.pct.toFixed(1)}%
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="muted">Filter to error to see aggregates and dominant exception patterns.</p>
-          )}
+                </button>
+              </li>
+            ))}
+          </ul>
         </ChartPanel>
 
         <div>
+          {activeAgg ? (
+            <div className="filter-bar">
+              <span>
+                Showing <strong>{activeAgg.label}</strong> ({activeAgg.count.toLocaleString()}{' '}
+                entries)
+              </span>
+              <button type="button" className="btn" onClick={() => setBucket(null)}>
+                Clear filter
+              </button>
+            </div>
+          ) : null}
           <div className="log-stream" role="list" aria-label="Log stream">
             {filtered.map((log) => (
               <button
