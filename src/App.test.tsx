@@ -24,6 +24,11 @@ describe('App navigation, gating and progressive disclosure', () => {
     expect(screen.queryByRole('button', { name: 'Logs' })).toBeNull()
   })
 
+  it('notes that customers are mainly in the USA', () => {
+    render(<App />)
+    expect(screen.getByText(/customers are mainly in the USA/i)).toBeInTheDocument()
+  })
+
   it('reveals a view in the top nav once it is visited via its link', () => {
     render(<App />)
     expect(screen.queryByRole('button', { name: 'Service Health' })).toBeNull()
@@ -59,20 +64,35 @@ describe('App navigation, gating and progressive disclosure', () => {
     expect(screen.getByText(/No traces available/i)).toBeInTheDocument()
   })
 
-  it('exposes the config change diff in the changelog', async () => {
+  it('shows the SWE config deploy time and diff on #/changelog-swe', async () => {
     const user = userEvent.setup()
     render(<App />)
-    goto('#/changelog')
+    goto('#/changelog-swe')
+    expect(screen.getByRole('button', { name: 'Changelog' })).toBeInTheDocument()
+    expect(screen.getByText(/15:50 UTC/i)).toBeInTheDocument()
+    expect(screen.queryByText(/10:00 UTC/i)).toBeNull()
     expect(screen.getByText(/Update README.md/i)).toBeInTheDocument()
     await user.click(screen.getAllByRole('button', { name: 'View diff' })[0])
     expect(screen.getByText(/pool_size: 5/i)).toBeInTheDocument()
   })
 
-  it('lists every path on the interviewer directory page', () => {
+  it('shows the Senior config deploy time on #/changelog-senior', () => {
+    render(<App />)
+    goto('#/changelog-senior')
+    expect(screen.getByRole('button', { name: 'Changelog' })).toBeInTheDocument()
+    expect(screen.getByText(/10:00 UTC/i)).toBeInTheDocument()
+    expect(screen.queryByText(/15:50 UTC/i)).toBeNull()
+  })
+
+  it('lists changelog level aliases on the interviewer directory page', () => {
     render(<App />)
     goto('#/all')
     expect(screen.getByRole('heading', { name: /All paths/i })).toBeInTheDocument()
     expect(screen.getByText('#/health')).toBeInTheDocument()
     expect(screen.getByText('#/endpoints')).toBeInTheDocument()
+    expect(screen.getByText('#/changelog-swe')).toBeInTheDocument()
+    expect(screen.getByText('#/changelog-senior')).toBeInTheDocument()
+    expect(screen.getByText(/Changelog · SWE 2\/3/i)).toBeInTheDocument()
+    expect(screen.getByText(/Changelog · Senior\/Staff/i)).toBeInTheDocument()
   })
 })

@@ -6,12 +6,21 @@ export interface DiffLine {
 export interface ChangelogEntry {
   id: string
   date: string
+  /** UTC wall-clock time `HH:MM` for the change. */
+  time: string
   author: string
   kind: 'deploy' | 'config' | 'docs' | 'chore'
   title: string
   sha: string
   repo: string
   diff?: DiffLine[]
+}
+
+export type ChangelogVariant = 'swe' | 'senior'
+
+const CONFIG_TIME_BY_VARIANT: Record<ChangelogVariant, string> = {
+  swe: '15:50',
+  senior: '10:00',
 }
 
 export const CONFIG_DIFF: DiffLine[] = [
@@ -90,10 +99,11 @@ export const GATEWAY_ROUTE_DIFF: DiffLine[] = [
   { type: 'context', text: '     timeout_ms: 30000' },
 ]
 
-export const CHANGELOG: ChangelogEntry[] = [
+const CHANGELOG_BASE: ChangelogEntry[] = [
   {
     id: 'c1',
     date: '2026-07-15',
+    time: '15:50',
     author: 'deploy-bot',
     kind: 'config',
     title: 'Tune runtime settings for sharing-service',
@@ -104,6 +114,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     id: 'r1',
     date: '2026-07-15',
+    time: '14:05',
     author: 'deploy-bot',
     kind: 'deploy',
     title: 'Bump @box/sharing-service-client 3.4.0 → 3.4.1',
@@ -114,6 +125,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     id: 'r2',
     date: '2026-07-15',
+    time: '11:20',
     author: 'j.kowalski',
     kind: 'deploy',
     title: 'Add owner annotation to sharing-service route',
@@ -124,6 +136,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     id: 'c2',
     date: '2026-07-14',
+    time: '16:40',
     author: 'm.nowak',
     kind: 'docs',
     title: 'Update README.md with local dev setup instructions',
@@ -134,6 +147,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     id: 'c3',
     date: '2026-07-14',
+    time: '09:12',
     author: 'dependabot',
     kind: 'chore',
     title: 'Bump urllib3 from 2.2.1 to 2.2.2',
@@ -142,6 +156,14 @@ export const CHANGELOG: ChangelogEntry[] = [
     diff: URLLIB3_DIFF,
   },
 ]
+
+/** Changelog for a candidate level. Only the config change time differs. */
+export function getChangelog(variant: ChangelogVariant): ChangelogEntry[] {
+  const configTime = CONFIG_TIME_BY_VARIANT[variant]
+  return CHANGELOG_BASE.map((entry) =>
+    entry.id === 'c1' ? { ...entry, time: configTime } : entry,
+  )
+}
 
 export const DOCKERFILE = `# syntax=docker/dockerfile:1
 FROM python:3.11-slim

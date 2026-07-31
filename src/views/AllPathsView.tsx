@@ -9,15 +9,62 @@ interface AllPathsViewProps {
   onReset: () => void
 }
 
-function linkFor(id: ViewId): string {
+type DirectoryRow = {
+  key: string
+  label: string
+  description: string
+  path: string
+  unlockId: ViewId
+  open: () => void
+}
+
+function absoluteLink(path: string): string {
   const { origin, pathname, search } = window.location
-  return `${origin}${pathname}${search}#/${id}`
+  const hash = path.startsWith('#') ? path : `#/${path}`
+  return `${origin}${pathname}${search}${hash}`
 }
 
 export function AllPathsView({ unlocked, onNavigate, onUnlockAll, onReset }: AllPathsViewProps) {
-  const copy = (id: ViewId) => {
-    navigator.clipboard?.writeText(linkFor(id)).catch(() => {})
+  const copy = (path: string) => {
+    navigator.clipboard?.writeText(absoluteLink(path)).catch(() => {})
   }
+
+  const openHash = (path: string) => {
+    window.location.hash = path.startsWith('#') ? path : `#/${path}`
+  }
+
+  const rows: DirectoryRow[] = VIEWS.flatMap((v): DirectoryRow[] => {
+    if (v.id === 'changelog') {
+      return [
+        {
+          key: 'changelog-swe',
+          label: 'Changelog · SWE 2/3',
+          description: `${v.description} (config deploy ~15:50 UTC)`,
+          path: '#/changelog-swe',
+          unlockId: 'changelog',
+          open: () => openHash('#/changelog-swe'),
+        },
+        {
+          key: 'changelog-senior',
+          label: 'Changelog · Senior/Staff',
+          description: `${v.description} (config deploy ~10:00 UTC)`,
+          path: '#/changelog-senior',
+          unlockId: 'changelog',
+          open: () => openHash('#/changelog-senior'),
+        },
+      ]
+    }
+    return [
+      {
+        key: v.id,
+        label: v.label,
+        description: v.description,
+        path: `#/${v.id}`,
+        unlockId: v.id,
+        open: () => onNavigate(v.id),
+      },
+    ]
+  })
 
   return (
     <section>
@@ -51,24 +98,24 @@ export function AllPathsView({ unlocked, onNavigate, onUnlockAll, onReset }: All
             </tr>
           </thead>
           <tbody>
-            {VIEWS.map((v) => (
-              <tr key={v.id}>
-                <td>{v.label}</td>
-                <td className="muted">{v.description}</td>
+            {rows.map((row) => (
+              <tr key={row.key}>
+                <td>{row.label}</td>
+                <td className="muted">{row.description}</td>
                 <td>
-                  <code>#/{v.id}</code>
+                  <code>{row.path}</code>
                 </td>
                 <td>
-                  <span className={`badge ${unlocked.includes(v.id) ? 'ok' : ''}`}>
-                    {unlocked.includes(v.id) ? 'unlocked' : 'hidden'}
+                  <span className={`badge ${unlocked.includes(row.unlockId) ? 'ok' : ''}`}>
+                    {unlocked.includes(row.unlockId) ? 'unlocked' : 'hidden'}
                   </span>
                 </td>
                 <td>
                   <div className="path-actions">
-                    <button type="button" className="btn" onClick={() => onNavigate(v.id)}>
+                    <button type="button" className="btn" onClick={row.open}>
                       Open
                     </button>
-                    <button type="button" className="btn" onClick={() => copy(v.id)}>
+                    <button type="button" className="btn" onClick={() => copy(row.path)}>
                       Copy link
                     </button>
                   </div>

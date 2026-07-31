@@ -31,6 +31,7 @@ export function HomeView({ serviceName }: HomeViewProps) {
             is one of the services in that domain.
           </li>
           <li>It is currently {NOW_LABEL} UTC.</li>
+          <li>The company's customers are mainly in the USA.</li>
           <li>
             About 30 minutes ago, multiple internal teams started reporting requests failing
             intermittently — some succeed, some fail.

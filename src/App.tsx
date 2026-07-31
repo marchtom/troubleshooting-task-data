@@ -16,7 +16,8 @@ import { ServiceHealthView } from './views/ServiceHealthView'
 import { TracesView } from './views/TracesView'
 
 export default function App() {
-  const [view, navigate] = useHashRoute()
+  const [route, navigate] = useHashRoute()
+  const { view, changelogVariant } = route
   const { unlocked, unlock, unlockAll, reset } = useUnlockedViews()
 
   // Visiting a metric view (directly or via a shared link) reveals it in the top navigation.
@@ -40,7 +41,7 @@ export default function App() {
         {view === 'logs' ? <LogsView scenario={scenario} /> : null}
         {view === 'traces' ? <TracesView /> : null}
         {view === 'dependencies' ? <DependenciesView scenario={scenario} /> : null}
-        {view === 'changelog' ? <ChangelogView /> : null}
+        {view === 'changelog' ? <ChangelogView variant={changelogVariant} /> : null}
         {view === 'dockerfile' ? <DockerfileView /> : null}
         {view === 'manifest' ? <ManifestView /> : null}
         {view === 'all' ? (

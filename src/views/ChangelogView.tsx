@@ -1,7 +1,15 @@
 import { useState } from 'react'
 import { ChartPanel } from '../components/ChartPanel'
-import { CHANGELOG, type ChangelogEntry } from '../data/artifacts'
+import {
+  getChangelog,
+  type ChangelogEntry,
+  type ChangelogVariant,
+} from '../data/artifacts'
 import { SCENARIO_NOW } from '../data/generateScenario'
+
+interface ChangelogViewProps {
+  variant: ChangelogVariant
+}
 
 function toUtcDate(ms: number): string {
   return new Date(ms).toISOString().slice(0, 10)
@@ -30,9 +38,9 @@ function groupByDay(entries: ChangelogEntry[]): Array<{ label: string; date: str
     .map((date) => ({ label: dayLabel(date), date, items: map.get(date)! }))
 }
 
-export function ChangelogView() {
+export function ChangelogView({ variant }: ChangelogViewProps) {
   const [expanded, setExpanded] = useState<string | null>(null)
-  const groups = groupByDay(CHANGELOG)
+  const groups = groupByDay(getChangelog(variant))
 
   return (
     <section>
@@ -65,7 +73,7 @@ export function ChangelogView() {
                           <div className="changelog-title">{entry.title}</div>
                           <div className="muted">
                             <span className="commit-sha">{entry.sha}</span> · {entry.repo} ·{' '}
-                            {entry.author}
+                            {entry.author} · {entry.time} UTC
                           </div>
                         </div>
                         {entry.diff ? (
