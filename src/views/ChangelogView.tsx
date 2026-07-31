@@ -35,7 +35,12 @@ function groupByDay(entries: ChangelogEntry[]): Array<{ label: string; date: str
   }
   return order
     .sort((a, b) => (a < b ? 1 : -1))
-    .map((date) => ({ label: dayLabel(date), date, items: map.get(date)! }))
+    .map((date) => ({
+      label: dayLabel(date),
+      date,
+      // Newest first within the day (chronological for a changelog feed).
+      items: [...map.get(date)!].sort((a, b) => (a.time < b.time ? 1 : a.time > b.time ? -1 : 0)),
+    }))
 }
 
 export function ChangelogView({ variant }: ChangelogViewProps) {

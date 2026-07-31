@@ -82,6 +82,16 @@ describe('App navigation, gating and progressive disclosure', () => {
     expect(screen.getByRole('button', { name: 'Changelog' })).toBeInTheDocument()
     expect(screen.getByText(/10:00 UTC/i)).toBeInTheDocument()
     expect(screen.queryByText(/15:50 UTC/i)).toBeNull()
+    // Within Today, newest-first: config @ 10:00 is last.
+    const todayTimes = screen
+      .getAllByText(/\d{2}:\d{2} UTC/)
+      .map((el) => el.textContent ?? '')
+      .filter((t) => /14:05|11:20|10:00/.test(t))
+    expect(todayTimes).toEqual([
+      expect.stringContaining('14:05 UTC'),
+      expect.stringContaining('11:20 UTC'),
+      expect.stringContaining('10:00 UTC'),
+    ])
   })
 
   it('lists changelog level aliases on the interviewer directory page', () => {
