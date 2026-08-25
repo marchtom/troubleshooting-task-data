@@ -5,6 +5,10 @@ import type { LogEntry, LogLevel, Scenario } from '../data/types'
 
 const LEVELS: Array<LogLevel | 'all'> = ['all', 'error', 'warn', 'info', 'debug']
 
+/** High enough that filtering to a level still reaches the start of the window; the unfiltered
+ *  stream is far denser and stays truncated. */
+const STREAM_LIMIT = 1500
+
 interface LogsViewProps {
   scenario: Scenario
 }
@@ -24,17 +28,16 @@ export function LogsView({ scenario }: LogsViewProps) {
   const [bucket, setBucket] = useState<string | null>(null)
   const [selected, setSelected] = useState<LogEntry | null>(null)
 
-  const filtered = useMemo(() => {
-    let list: LogEntry[]
+  const matching = useMemo(() => {
     if (bucket) {
-      list = scenario.logs.filter((l) => l.level === 'error' && errorBucket(l).key === bucket)
-    } else if (level === 'all') {
-      list = scenario.logs
-    } else {
-      list = scenario.logs.filter((l) => l.level === level)
+      return scenario.logs.filter((l) => l.level === 'error' && errorBucket(l).key === bucket)
     }
-    return list.slice(0, 400)
+    if (level === 'all') return scenario.logs
+    return scenario.logs.filter((l) => l.level === level)
   }, [scenario.logs, level, bucket])
+
+  const filtered = useMemo(() => matching.slice(0, STREAM_LIMIT), [matching])
+  const truncated = matching.length - filtered.length
 
   const activeAgg = bucket ? scenario.logAggregates.find((a) => a.key === bucket) : null
 
@@ -112,6 +115,13 @@ export function LogsView({ scenario }: LogsViewProps) {
                 Clear filter
               </button>
             </div>
+          ) : null}
+          {truncated > 0 ? (
+            <p className="muted agg-hint">
+              Showing the newest {filtered.length.toLocaleString()} entries;{' '}
+              {truncated.toLocaleString()} older ones are not rendered. Filter by level to reach
+              further back.
+            </p>
           ) : null}
           <div className="log-stream" role="list" aria-label="Log stream">
             {filtered.map((log) => (

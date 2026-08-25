@@ -67,6 +67,20 @@ describe('App navigation, gating and progressive disclosure', () => {
     expect(screen.getAllByText(/connection checkout timed out/i).length).toBeGreaterThan(0)
   })
 
+  it('reaches back to the start of the window when filtering by level', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    goto('#/logs')
+
+    await user.click(screen.getByRole('button', { name: 'error' }))
+    expect(screen.getAllByText(/^15:3\d:\d\d$/).length).toBeGreaterThan(0)
+
+    await user.click(screen.getByRole('button', { name: 'warn' }))
+    const earlyWarnRows = screen.getAllByText(/^15:3\d:\d\d$/)
+    expect(earlyWarnRows.length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/slow downstream call/i).length).toBeGreaterThan(0)
+  })
+
   it('shows a no-traces message instead of trace waterfalls', () => {
     render(<App />)
     goto('#/traces')
