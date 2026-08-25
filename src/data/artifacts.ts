@@ -1,3 +1,5 @@
+import { INCIDENT_COMMIT_SHA } from './scenarioConstants'
+
 export interface DiffLine {
   type: 'context' | 'add' | 'del' | 'meta' | 'hunk'
   text: string
@@ -41,18 +43,12 @@ export const CONFIG_DIFF: DiffLine[] = [
   { type: 'add', text: '+  pool_size: 5  # tmp fix; TODO: review' },
   { type: 'add', text: '+  max_overflow: 2' },
   { type: 'context', text: '   statement_timeout_ms: 30000' },
-  { type: 'hunk', text: '@@ -27,6 +27,7 @@ cache:' },
+  { type: 'hunk', text: '@@ -27,6 +27,6 @@ cache:' },
   { type: 'context', text: ' cache:' },
   { type: 'context', text: '   backend: cache-manager' },
   { type: 'del', text: '-  ttl_seconds: 300' },
   { type: 'add', text: '+  ttl_seconds: 600' },
-  { type: 'add', text: '+  compression: true' },
   { type: 'context', text: '   max_keys: 100000' },
-  { type: 'hunk', text: '@@ -41,3 +42,4 @@ features:' },
-  { type: 'context', text: ' features:' },
-  { type: 'context', text: '   shared_links_v2: true' },
-  { type: 'add', text: '+  folder_tree_prefetch: false' },
-  { type: 'context', text: '   collaborations_batch: true' },
 ]
 
 export const README_DIFF: DiffLine[] = [
@@ -107,7 +103,8 @@ const CHANGELOG_BASE: ChangelogEntry[] = [
     author: 'deploy-bot',
     kind: 'config',
     title: 'Tune runtime settings for sharing-service',
-    sha: '4f2a1c9',
+    // This commit also tags the affected instance image; see IMAGE_SHA_NEW.
+    sha: INCIDENT_COMMIT_SHA,
     repo: 'sharing-service',
     diff: CONFIG_DIFF,
   },

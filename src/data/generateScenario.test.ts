@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
   AFFECTED_FRACTION,
+  IMAGE_SHA_NEW,
   TARGET_ERROR_RATE,
   generateScenario,
   seasonalMultiplier,
   scenarioInvariants,
 } from './generateScenario'
+import { INCIDENT_COMMIT_SHA } from './scenarioConstants'
 
 describe('generateScenario', () => {
   const scenario = generateScenario(42)
@@ -13,6 +15,12 @@ describe('generateScenario', () => {
 
   it('keeps ~60% of instances affected', () => {
     expect(invariants.affectedFraction).toBeCloseTo(AFFECTED_FRACTION, 1)
+  })
+
+  it('tags affected instances with the incident changelog commit', () => {
+    const affected = scenario.instances.filter((instance) => !instance.healthy)
+    expect(IMAGE_SHA_NEW).toBe(INCIDENT_COMMIT_SHA)
+    expect(affected.every((instance) => instance.imageSha === INCIDENT_COMMIT_SHA)).toBe(true)
   })
 
   it('ramps toward ~25% error rate by the end of the incident window', () => {
@@ -68,11 +76,38 @@ describe('generateScenario', () => {
     expect(last.healthyInstances).toBeCloseTo(unaffected, 0)
   })
 
-  it('extends logs five minutes on both sides of the original window', () => {
+  it('includes logs from 15:30 UTC through five minutes after now', () => {
     const times = scenario.logs.map((log) => log.t)
-    expect(Math.min(...times)).toBe(scenario.now - 20 * 60_000)
+    expect(Math.min(...times)).toBe(Date.UTC(2026, 6, 15, 15, 30, 0))
     expect(Math.max(...times)).toBeGreaterThan(scenario.now)
     expect(Math.max(...times)).toBeLessThanOrEqual(scenario.now + 5 * 60_000)
+  })
+
+  it('emits connection-pool failures only after the rollout', () => {
+    const pool = scenario.logs.filter((log) => log.exception === 'sqlalchemy.exc.TimeoutError')
+    const poolWarns = scenario.logs.filter((log) => log.message.startsWith('db pool:'))
+
+    expect(pool.length).toBeGreaterThan(0)
+    expect(poolWarns.length).toBeGreaterThan(0)
+    expect(pool.every((log) => log.t >= scenario.incidentStart)).toBe(true)
+    expect(poolWarns.every((log) => log.t >= scenario.incidentStart)).toBe(true)
+  })
+
+  it('keeps non-pool errors at a steady level across the whole window', () => {
+    const others = scenario.logs.filter(
+      (log) => log.level === 'error' && log.exception !== 'sqlalchemy.exc.TimeoutError',
+    )
+    const before = others.filter((log) => log.t < scenario.incidentStart)
+    const after = others.filter((log) => log.t >= scenario.incidentStart)
+    const windowStart = Math.min(...scenario.logs.map((log) => log.t))
+    const windowEnd = Math.max(...scenario.logs.map((log) => log.t))
+
+    const beforeRate = before.length / (scenario.incidentStart - windowStart)
+    const afterRate = after.length / (windowEnd - scenario.incidentStart)
+
+    expect(before.length).toBeGreaterThan(0)
+    expect(afterRate / beforeRate).toBeGreaterThan(0.7)
+    expect(afterRate / beforeRate).toBeLessThan(1.4)
   })
 
   it('models daily seasonality multipliers', () => {

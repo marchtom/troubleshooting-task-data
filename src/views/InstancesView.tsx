@@ -5,6 +5,8 @@ import { TimeSeriesChart } from '../components/TimeSeriesChart'
 import { filterSeries } from '../data/generateScenario'
 import type { Scenario, TimeRange } from '../data/types'
 
+const RANGES: TimeRange[] = ['1h', '6h', '24h', '7d']
+
 interface InstancesViewProps {
   scenario: Scenario
 }
@@ -30,7 +32,7 @@ export function InstancesView({ scenario }: InstancesViewProps) {
           </p>
         </div>
         <div className="range-group" role="group" aria-label="Time range">
-          {(['1h', '6h', '24h'] as TimeRange[]).map((r) => (
+          {RANGES.map((r) => (
             <button
               key={r}
               type="button"

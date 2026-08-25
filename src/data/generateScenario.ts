@@ -7,6 +7,7 @@ import type {
   Scenario,
   TimePoint,
 } from './types'
+import { INCIDENT_COMMIT_SHA } from './scenarioConstants'
 
 /** Fixed "now" — Wed 2026-07-15 16:30 UTC, with the incident beginning at 16:00 UTC. */
 export const SCENARIO_NOW = Date.UTC(2026, 6, 15, 16, 30, 0)
@@ -16,7 +17,8 @@ export const INSTANCE_COUNT = 45
 export const AFFECTED_FRACTION = 0.6
 /** Two container image SHAs currently live on prod: the rollout that stalled (new, erroring) and
  *  the previous image still running on the pods that were never updated. */
-export const IMAGE_SHA_NEW = '7d3f9a2e'
+// The affected image is tagged with the same commit shown in the sharing-service changelog.
+export const IMAGE_SHA_NEW = INCIDENT_COMMIT_SHA
 export const IMAGE_SHA_OLD = 'b18c04a5'
 export const TARGET_ERROR_RATE = 0.25
 /** Errors visible for the last 30 minutes of the series. */
@@ -331,11 +333,29 @@ const POOL_STACK = [
   '(Background on this error at: https://sqlalche.me/e/20/3o7r)',
 ].join('\n')
 
+/** Per-minute emission rates, so a longer log window keeps the same density instead of thinning out. */
+const LOGS_PER_MINUTE = {
+  backfilledRequests: 36,
+  clientErrors: 3.8,
+  e2eNoise: 4.8,
+  loadShed: 0.12,
+  poolErrors: 2.8,
+  poolWarns: 1.6,
+}
+
+function countFor(perMinute: number, durationMs: number): number {
+  return Math.max(1, Math.round((perMinute * durationMs) / MINUTE))
+}
+
 function buildLogs(now: number, instances: Instance[], rng: () => number): LogEntry[] {
   const logs: LogEntry[] = []
-  const windowStart = now - 20 * MINUTE
+  const windowStart = now - HOUR
   const windowEnd = now + 5 * MINUTE
   const windowDuration = windowEnd - windowStart
+  // The pool only starts timing out once the shrunk-pool config is live, so those entries are
+  // confined to the incident window while every other log category spans the whole window.
+  const incidentStart = now - INCIDENT_LOOKBACK_MS
+  const incidentDuration = windowEnd - incidentStart
   const affected = instances.filter((i) => !i.healthy)
   const healthy = instances.filter((i) => i.healthy)
   let id = 0
@@ -343,6 +363,10 @@ function buildLogs(now: number, instances: Instance[], rng: () => number): LogEn
   const push = (entry: Omit<LogEntry, 'id'>) => {
     logs.push({ ...entry, id: `log-${++id}` })
   }
+
+  const steadyTime = () => windowStart + Math.floor(rng() * windowDuration)
+  /** Skewed toward the recent end so pool failures build up with the error-rate ramp. */
+  const incidentRampTime = () => incidentStart + Math.floor(Math.sqrt(rng()) * incidentDuration)
 
   // OpenTelemetry-style correlation ids. The service emits them into logs (early tracing
   // instrumentation), but no trace backend receives spans yet — the Traces tab stays empty.
@@ -395,7 +419,8 @@ function buildLogs(now: number, instances: Instance[], rng: () => number): LogEn
     }
   }
 
-  for (let i = 0; i < 900; i++) {
+  const backfilledRequests = countFor(LOGS_PER_MINUTE.backfilledRequests, windowDuration)
+  for (let i = 0; i < backfilledRequests; i++) {
     const inst = instances[Math.floor(rng() * instances.length)]
     const isRedirect = rng() < 0.18
     const path = isRedirect
@@ -404,7 +429,7 @@ function buildLogs(now: number, instances: Instance[], rng: () => number): LogEn
     const code = isRedirect ? (rng() < 0.7 ? 302 : 301) : 200
     const trace = otel()
     push({
-      t: windowStart + Math.floor(rng() * windowDuration),
+      t: steadyTime(),
       level: rng() < 0.35 ? 'debug' : 'info',
       instance: inst.name,
       message: isRedirect
@@ -414,7 +439,8 @@ function buildLogs(now: number, instances: Instance[], rng: () => number): LogEn
     })
   }
 
-  for (let i = 0; i < 95; i++) {
+  const clientErrors = countFor(LOGS_PER_MINUTE.clientErrors, windowDuration)
+  for (let i = 0; i < clientErrors; i++) {
     const codes = [400, 403, 423] as const
     const code = codes[Math.floor(rng() * codes.length)]
     const msgs: Record<number, string> = {
@@ -423,7 +449,7 @@ function buildLogs(now: number, instances: Instance[], rng: () => number): LogEn
       423: 'locked: item is locked by another collaborator',
     }
     push({
-      t: windowStart + Math.floor(rng() * windowDuration),
+      t: steadyTime(),
       level: 'error',
       instance: healthy[Math.floor(rng() * healthy.length)]?.name ?? instances[0].name,
       message: `${msgs[code]} ${otel()}`,
@@ -434,7 +460,8 @@ function buildLogs(now: number, instances: Instance[], rng: () => number): LogEn
   // Distractor: a poorly-configured synthetic E2E suite hammers the service with bad payloads.
   // Mostly 4xx (expired/invalid test fixtures, missing scopes), a few 5xx — noise unrelated to
   // the connection-pool incident.
-  for (let i = 0; i < 120; i++) {
+  const e2eNoise = countFor(LOGS_PER_MINUTE.e2eNoise, windowDuration)
+  for (let i = 0; i < e2eNoise; i++) {
     const roll = rng()
     let code: number
     let message: string
@@ -452,7 +479,7 @@ function buildLogs(now: number, instances: Instance[], rng: () => number): LogEn
       message = 'bad gateway: upstream test proxy reset connection'
     }
     push({
-      t: windowStart + Math.floor(rng() * windowDuration),
+      t: steadyTime(),
       level: 'error',
       instance: healthy[Math.floor(rng() * healthy.length)]?.name ?? instances[0].name,
       message: `${message} client=e2e-test-runner user_agent=BoxE2E/1.0 ${otel()}`,
@@ -460,10 +487,11 @@ function buildLogs(now: number, instances: Instance[], rng: () => number): LogEn
     })
   }
 
-  for (let i = 0; i < 70; i++) {
+  const poolErrors = countFor(LOGS_PER_MINUTE.poolErrors, incidentDuration)
+  for (let i = 0; i < poolErrors; i++) {
     const inst = affected[Math.floor(rng() * affected.length)]
     push({
-      t: windowStart + Math.floor(rng() * windowDuration),
+      t: incidentRampTime(),
       level: 'error',
       instance: inst.name,
       message: `${POOL_MESSAGE} ${otel()}`,
@@ -475,19 +503,21 @@ function buildLogs(now: number, instances: Instance[], rng: () => number): LogEn
 
   // Breadcrumb WARNs on the affected pods: the symptom (no free connections) without naming the
   // config. Points toward the flat DB-connections ceiling for anyone who filters to warn.
-  for (let i = 0; i < 40; i++) {
+  const poolWarns = countFor(LOGS_PER_MINUTE.poolWarns, incidentDuration)
+  for (let i = 0; i < poolWarns; i++) {
     const inst = affected[Math.floor(rng() * affected.length)]
     push({
-      t: windowStart + Math.floor(rng() * windowDuration),
+      t: incidentRampTime(),
       level: 'warn',
       instance: inst.name,
       message: POOL_WARN,
     })
   }
 
-  for (let i = 0; i < 3; i++) {
+  const loadShed = countFor(LOGS_PER_MINUTE.loadShed, windowDuration)
+  for (let i = 0; i < loadShed; i++) {
     push({
-      t: windowStart + Math.floor(rng() * windowDuration),
+      t: steadyTime(),
       level: 'error',
       instance: instances[Math.floor(rng() * instances.length)].name,
       message: `service unavailable: request shed by load limiter ${otel()}`,

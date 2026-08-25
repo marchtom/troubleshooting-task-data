@@ -47,6 +47,15 @@ describe('App navigation, gating and progressive disclosure', () => {
     expect(screen.getByRole('button', { name: 'Logs' })).toBeInTheDocument()
   })
 
+  it('supports the 7d range in the instances view', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    goto('#/instances')
+    const range = screen.getByRole('button', { name: '7d' })
+    await user.click(range)
+    expect(range).toHaveClass('active')
+  })
+
   it('filters the log stream to a chosen error bucket', async () => {
     const user = userEvent.setup()
     render(<App />)
