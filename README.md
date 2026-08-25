@@ -13,9 +13,23 @@ Dual remotes (Box GHE + github.com), PR vs direct-push rules, and GitHub Pages d
 
 ## Local development
 
+This is a React + Vite app. No environment variables or `.env` file are required.
+
 ```bash
 npm install
 npm run dev
-npm test
-npm run build
 ```
+
+Vite serves the app at **http://localhost:5173/** (default). Open that URL in a browser.
+
+Other scripts:
+
+| Command | What it does |
+|---------|----------------|
+| `npm test` | Run Vitest once |
+| `npm run test:watch` | Run Vitest in watch mode |
+| `npm run build` | Typecheck and build static files into `dist/` |
+| `npm run preview` | Serve the production `dist/` locally |
+| `npm run lint` | Typecheck only (`tsc -b`) |
+
+Scenario and dashboard content live under `src/` (views, `src/data/`, etc.).
